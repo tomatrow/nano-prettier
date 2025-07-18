@@ -1,0 +1,3 @@
+# nPrettier
+
+Barely abstracted Prettier

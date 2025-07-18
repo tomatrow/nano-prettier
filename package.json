@@ -1,0 +1,17 @@
+{
+	"name": "nano-prettier",
+	"version": "0.1.0",
+	"description": "Barely abstracted Prettier",
+	"scripts": {},
+	"keywords": [
+		"nova",
+		"prettier"
+	],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@9.14.4",
+	"devDependencies": {
+		"@types/nova-editor": "^1.0.3",
+		"prettier": "^3.6.2"
+	}
+}

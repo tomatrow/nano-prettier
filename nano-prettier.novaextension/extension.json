@@ -1,0 +1,16 @@
+{
+	"identifier": "com.tomatrow.nano-prettier",
+	"name": "nPrettier",
+	"organization": "com.tomatrow",
+	"description": "Barely abstracted Prettier",
+	"repository": "https://github.com/tomatrow/nano-prettier",
+	"bugs": "https://github.com/tomatrow/nano-prettier/issues",
+	"version": "0.1.0",
+	"categories": ["formatters"],
+	"main": "main.js",
+	"activationEvents": ["onWorkspaceContains:package.json"],
+	"entitlements": {
+		"filesystem": "readwrite",
+		"process": true
+	}
+}
