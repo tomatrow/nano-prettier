@@ -134,12 +134,9 @@ async function maybeFormat(editor, lastFormattedText) {
 		globalPrettierPath
 	if (!executablePath) return
 
-	console.log(`${executablePath} --stdin-filepath ${filePath}`)
-	const prettier = await runAsync(
-		executablePath,
-		{ args: ["--stdin-filepath", filePath] },
-		wholeFileText
-	)
+	const args = ["--stdin-filepath", filePath]
+	console.log([executablePath, ...args].join(" "))
+	const prettier = await runAsync(executablePath, { args }, wholeFileText)
 	if (prettier.code !== 0) throw new Error(prettier.stderr)
 	if (wholeFileText === prettier.stdout) return
 
