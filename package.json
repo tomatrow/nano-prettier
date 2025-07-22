@@ -2,7 +2,9 @@
 	"name": "nano-prettier",
 	"version": "0.1.0",
 	"description": "Barely abstracted Prettier",
-	"scripts": {},
+	"scripts": {
+		"install": "open nano-prettier.novaextension"
+	},
 	"keywords": [
 		"nova",
 		"prettier"
