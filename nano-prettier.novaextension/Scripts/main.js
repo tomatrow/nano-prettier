@@ -1,26 +1,9 @@
 const diff = require("./fast-diff")
 
+/** @type {string | undefined}  */
+let globalPrettierPath
+
 const CURSOR_MARKER = String.fromCharCode(0xfffd) // Replacement character
-const DEFAULT_PRETTIER_CONFIG_FILENAMES = [
-	".prettierrc",
-	".prettierrc.json",
-	".prettierrc.yml",
-	".prettierrc.yaml",
-	".prettierrc.json5",
-	".prettierrc.js",
-	".prettierrc.cjs",
-	".prettierrc.ts",
-	".prettierrc.mjs",
-	".prettierrc.mts",
-	".prettierrc.cts",
-	".prettierrc.toml",
-	"prettier.config.js",
-	"prettier.config.cjs",
-	"prettier.config.ts",
-	"prettier.config.mjs",
-	"prettier.config.mts",
-	"prettier.config.cts"
-]
 
 /**
  * @param {string} executablePath
@@ -48,20 +31,26 @@ function runAsync(executablePath, options, stdin) {
 	})
 }
 
-/**
- * @param {string} dirname
- * @returns {string | undefined} path of closest prettier config
+/** travels up directories seeking a relative path
+ * @param {string} dirname - starting dirname
+ * @param {string} targetPaths - paths to check
+ * @returns info on the closest path or `undefined`
  */
-function getClosestPrettierConfig(dirname) {
+function getClosestPathInfo(dirname, targetPaths) {
 	for (let i = 0; i <= 100; i++) {
-		const configRoot = nova.path.join(dirname, "../".repeat(i))
+		const currentRoot = nova.path.join(dirname, "../".repeat(i))
 
-		for (const configFileName of DEFAULT_PRETTIER_CONFIG_FILENAMES) {
-			const configPath = nova.path.join(configRoot, configFileName)
-			if (nova.fs.stat(configPath)) return nova.path.normalize(configPath)
+		for (const targetPath of targetPaths) {
+			const filePath = nova.path.join(currentRoot, targetPath)
+			if (nova.fs.stat(filePath))
+				return {
+					rootPath: nova.path.normalize(currentRoot),
+					targetPath,
+					filePath: nova.path.normalize(filePath)
+				}
 		}
 
-		if (configRoot === "/") return // we hit top-level directory
+		if (currentRoot === "/") return // we hit top-level directory
 	}
 }
 
@@ -132,41 +121,53 @@ function applyTextDiff(edit, original, formatted, selectedRanges) {
 	return selections.map((s) => new Range(s[0], s[1] !== undefined ? s[1] : s[0]))
 }
 
-/** @param {TextEditor} editor */
-async function maybeFormat(editor) {
+/** @param {TextEditor} editor @param {string | undefined} lastFormattedText */
+async function maybeFormat(editor, lastFormattedText) {
 	const filePath = editor.document.path
 	if (!filePath) return
 
-	const configPath = getClosestPrettierConfig(nova.path.dirname(filePath))
-	if (!configPath) return
-
-	const cwd = nova.path.dirname(configPath)
-	const executablePath = nova.path.join(cwd, "node_modules/.bin/prettier")
-	if (!nova.fs.stat(executablePath)) return
-
 	const wholeFileText = editor.document.getTextInRange(new Range(0, editor.document.length))
+	if (lastFormattedText === wholeFileText) return
+
+	const executablePath =
+		getClosestPathInfo(nova.path.dirname(filePath), ["node_modules/.bin/prettier"])?.filePath ??
+		globalPrettierPath
+	if (!executablePath) return
+
+	console.log(`${executablePath} --stdin-filepath ${filePath}`)
 	const prettier = await runAsync(
 		executablePath,
-		{ cwd, args: ["--stdin-filepath", filePath] },
+		{ args: ["--stdin-filepath", filePath] },
 		wholeFileText
 	)
-	const guard = prettier?.code === 0 && wholeFileText !== prettier.stdout
-	if (!guard) return
+	if (prettier.code !== 0) throw new Error(prettier.stderr)
+	if (wholeFileText === prettier.stdout) return
 
 	const newSelections = await editor.edit((edit) =>
 		applyTextDiff(edit, wholeFileText, prettier.stdout, editor.selectedRanges)
 	)
 	if (newSelections && newSelections.length > 0) editor.selectedRanges = newSelections
 
-	return true
+	return prettier.stdout
 }
 
 nova.workspace.onDidAddTextEditor((editor) => {
+	/** @type {string | undefined} */
+	let lastFormattedText
 	editor.onWillSave(() => {
-		maybeFormat(editor)
-			.then((didChange) => {
-				if (didChange) setTimeout(() => editor.save())
+		maybeFormat(editor, lastFormattedText)
+			.then((formattedText) => {
+				if (formattedText === undefined) return
+				lastFormattedText = formattedText
+				setTimeout(() => editor.save())
 			})
-			.catch(console.error)
+			.catch((error) => nova.workspace.showErrorMessage(error))
 	})
 })
+
+module.exports.activate = async () => {
+	const whichPrettier = await runAsync("/usr/bin/env", { args: ["which", "prettier"] }).catch(
+		console.error
+	)
+	if (whichPrettier?.code === 0) globalPrettierPath = whichPrettier.stdout.trim()
+}
