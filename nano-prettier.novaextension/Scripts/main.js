@@ -4,6 +4,26 @@ const diff = require("./fast-diff")
 let globalPrettierPath
 
 const CURSOR_MARKER = String.fromCharCode(0xfffd) // Replacement character
+const DEFAULT_PRETTIER_CONFIG_FILENAMES = [
+	".prettierrc",
+	".prettierrc.json",
+	".prettierrc.yml",
+	".prettierrc.yaml",
+	".prettierrc.json5",
+	".prettierrc.js",
+	".prettierrc.cjs",
+	".prettierrc.ts",
+	".prettierrc.mjs",
+	".prettierrc.mts",
+	".prettierrc.cts",
+	".prettierrc.toml",
+	"prettier.config.js",
+	"prettier.config.cjs",
+	"prettier.config.ts",
+	"prettier.config.mjs",
+	"prettier.config.mts",
+	"prettier.config.cts"
+]
 
 /**
  * @param {string} executablePath
@@ -31,26 +51,22 @@ function runAsync(executablePath, options, stdin) {
 	})
 }
 
-/** travels up directories seeking a relative path
+/** travels up workspace directories seeking a relative path
  * @param {string} dirname - starting dirname
  * @param {string} targetPaths - paths to check
  * @returns info on the closest path or `undefined`
  */
 function getClosestPathInfo(dirname, targetPaths) {
 	for (let i = 0; i <= 100; i++) {
-		const currentRoot = nova.path.join(dirname, "../".repeat(i))
+		const rootPath = nova.path.normalize(nova.path.join(dirname, "../".repeat(i)))
 
 		for (const targetPath of targetPaths) {
-			const filePath = nova.path.join(currentRoot, targetPath)
-			if (nova.fs.stat(filePath))
-				return {
-					rootPath: nova.path.normalize(currentRoot),
-					targetPath,
-					filePath: nova.path.normalize(filePath)
-				}
+			const filePath = nova.path.join(rootPath, targetPath)
+			if (nova.fs.stat(filePath) && nova.workspace.contains(filePath))
+				return { rootPath, targetPath, filePath }
 		}
 
-		if (currentRoot === "/") return // we hit top-level directory
+		if (rootPath === "/") return // we hit top-level directory
 	}
 }
 
@@ -134,7 +150,13 @@ async function maybeFormat(editor, lastFormattedText) {
 		globalPrettierPath
 	if (!executablePath) return
 
+	const configPath = getClosestPathInfo(nova.path.dirname(filePath), [
+		...(nova.config.get("config_file_names", "array") ?? []),
+		...DEFAULT_PRETTIER_CONFIG_FILENAMES
+	])?.filePath
 	const args = ["--stdin-filepath", filePath]
+	if (configPath) args.push("--config", configPath)
+
 	console.log([executablePath, ...args].join(" "))
 	const prettier = await runAsync(executablePath, { args }, wholeFileText)
 	if (prettier.code !== 0) throw new Error(prettier.stderr)

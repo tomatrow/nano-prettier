@@ -12,5 +12,13 @@
 	"entitlements": {
 		"filesystem": "readwrite",
 		"process": true
-	}
+	},
+	"config": [
+		{
+			"key": "config_file_names",
+			"title": "Config File Names",
+			"description": "Prettier config file names to look for.\n\nAdding config file names here will take precedence over the default order.\n\nDefault order is:\n\n.prettierrc\n.prettierrc.json\n.prettierrc.yml\n.prettierrc.yaml\n.prettierrc.json5\n.prettierrc.js\n.prettierrc.cjs\n.prettierrc.ts\n.prettierrc.mjs\n.prettierrc.mts\n.prettierrc.cts\n.prettierrc.toml\nprettier.config.js\nprettier.config.cjs\nprettier.config.ts\nprettier.config.mjs\nprettier.config.mts\nprettier.config.cts",
+			"type": "stringArray"
+		}
+	]
 }
