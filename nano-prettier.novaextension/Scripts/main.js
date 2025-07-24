@@ -170,6 +170,19 @@ async function maybeFormat(editor, lastFormattedText) {
 	return prettier.stdout
 }
 
+/** @param {unknown} error  */
+function handleError(error) {
+	const notification = new NotificationRequest()
+
+	notification.title = "Prettier Error"
+	notification.body =
+		error instanceof Error ? error.message
+		: typeof error === "string" ? error
+		: "Unknown error"
+
+	nova.notifications.add(notification)
+}
+
 nova.workspace.onDidAddTextEditor((editor) => {
 	/** @type {string | undefined} */
 	let lastFormattedText
@@ -180,13 +193,13 @@ nova.workspace.onDidAddTextEditor((editor) => {
 				lastFormattedText = formattedText
 				setTimeout(() => editor.save())
 			})
-			.catch((error) => nova.workspace.showErrorMessage(error))
+			.catch(handleError)
 	})
 })
 
 module.exports.activate = async () => {
 	const whichPrettier = await runAsync("/usr/bin/env", { args: ["which", "prettier"] }).catch(
-		console.error
+		handleError
 	)
 	if (whichPrettier?.code === 0) globalPrettierPath = whichPrettier.stdout.trim()
 }
