@@ -171,7 +171,7 @@ async function maybeFormat(editor, lastFormattedText) {
 }
 
 /** @param {unknown} error  */
-function handleError(error) {
+function toastError(error) {
 	const notification = new NotificationRequest()
 
 	notification.title = "Prettier Error"
@@ -193,7 +193,17 @@ nova.workspace.onDidAddTextEditor((editor) => {
 				lastFormattedText = formattedText
 				setTimeout(() => editor.save())
 			})
-			.catch(handleError)
+			.catch((error) => {
+				if (
+					error instanceof Error &&
+					error.message.startsWith("[error] No parser could be inferred for file")
+				) {
+					console.warn(prettier.stderr)
+					return
+				}
+
+				toastError(error)
+			})
 	})
 })
 
