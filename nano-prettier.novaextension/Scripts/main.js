@@ -1,8 +1,5 @@
 const diff = require("./fast-diff")
 
-/** @type {string | undefined}  */
-let globalPrettierPath
-
 const CURSOR_MARKER = String.fromCharCode(0xfffd) // Replacement character
 const DEFAULT_PRETTIER_CONFIG_FILENAMES = [
 	".prettierrc",
@@ -145,10 +142,10 @@ async function maybeFormat(editor, lastFormattedText) {
 	const wholeFileText = editor.document.getTextInRange(new Range(0, editor.document.length))
 	if (lastFormattedText === wholeFileText) return
 
-	const executablePath =
-		getClosestPathInfo(nova.path.dirname(filePath), ["node_modules/.bin/prettier"])?.filePath ??
-		globalPrettierPath
-	if (!executablePath) return
+	const executableInfo = getClosestPathInfo(nova.path.dirname(filePath), [
+		"node_modules/.bin/prettier"
+	])
+	if (!executableInfo) return
 
 	const configPath = getClosestPathInfo(nova.path.dirname(filePath), [
 		...(nova.config.get("config_file_names", "array") ?? []),
@@ -157,8 +154,12 @@ async function maybeFormat(editor, lastFormattedText) {
 	const args = ["--stdin-filepath", filePath]
 	if (configPath) args.push("--config", configPath)
 
-	console.log([executablePath, ...args].join(" "))
-	const prettier = await runAsync(executablePath, { args }, wholeFileText)
+	console.log([executableInfo.filePath, ...args].join(" "))
+	const prettier = await runAsync(
+		executableInfo.filePath,
+		{ args, cwd: executableInfo.rootPath },
+		wholeFileText
+	)
 	if (prettier.code !== 0) throw new Error(prettier.stderr)
 	if (wholeFileText === prettier.stdout) return
 
@@ -206,10 +207,3 @@ nova.workspace.onDidAddTextEditor((editor) => {
 			})
 	})
 })
-
-module.exports.activate = async () => {
-	const whichPrettier = await runAsync("/usr/bin/env", { args: ["which", "prettier"] }).catch(
-		handleError
-	)
-	if (whichPrettier?.code === 0) globalPrettierPath = whichPrettier.stdout.trim()
-}
