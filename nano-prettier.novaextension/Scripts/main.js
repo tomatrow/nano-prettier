@@ -50,7 +50,7 @@ function runAsync(executablePath, options, stdin) {
 
 /** travels up workspace directories seeking a relative path
  * @param {string} dirname - starting dirname
- * @param {string} targetPaths - paths to check
+ * @param {string[]} targetPaths - paths to check
  * @returns info on the closest path or `undefined`
  */
 function getClosestPathInfo(dirname, targetPaths) {
